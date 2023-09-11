@@ -5,10 +5,10 @@ sequenceDiagram
     Note left of Server: Redirect to the notes page location
     Browser->>+Server: GET https://studies.cs.helsinki.fi/exampleapp/notes
     Server-->>-Browser: Content type text/HTML
-    Browser-->>+Server: GET https://studies.cs.helsinki.fi/exampleapp/main.css
+    Browser->>+Server: GET https://studies.cs.helsinki.fi/exampleapp/main.css
     Server-->>-Browser: Content Type text/CSS
-    Browser-->+Server: GET https://studies.cs.helsinki.fi/exampleapp/main.js
+    Browser->>+Server: GET https://studies.cs.helsinki.fi/exampleapp/main.js
     Server-->>-Browser: Content Type application/javascript
-    Browser-->+Server: GET https://studies.cs.helsinki.fi/exampleapp/data.json
+    Browser->>+Server: GET https://studies.cs.helsinki.fi/exampleapp/data.json
     Server-->-Browser: Content Type application/JSON
     Note right of Browser: Browser re-renders the new notes.
