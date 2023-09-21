@@ -3,13 +3,16 @@ import service from "./services/individuals";
 import SearchFilter from "./SearchFilter";
 import Form from "./Form";
 import IndividualsList from "./List";
+import Notification from "./Notification";
+
+const TIMEOUT_DURATION = 6000;
 
 const App = () => {
   const [individuals, setIndividuals] = useState([]);
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState("");
   const [searchValue, setSearchValue] = useState("");
-
+  const [notification, setNotification] = useState({});
   const handleChangeNewName = (e) => setNewName(e.target.value);
   const handleChangeNewNumber = (e) => setNewNumber(e.target.value);
 
@@ -20,6 +23,15 @@ const App = () => {
   };
 
   useEffect(getInitialData, []);
+
+  const clearNotification = () => {
+    setNewName("");
+    setNewNumber("");
+
+    setTimeout(() => {
+      setNotification({});
+    }, TIMEOUT_DURATION);
+  };
 
   const isNameEqual = (newName) => (person) =>
     person.name.toLocaleLowerCase() === newName.toLocaleLowerCase();
@@ -32,29 +44,38 @@ const App = () => {
 
     const existingPerson = newIndividuals.find(isNameEqual(newName));
 
-    if (typeof existingPerson?.id === 'number') {
+    if (typeof existingPerson?.id === "number") {
       message = `This name, ${newName}, already exists in the book. Do you want to update the phone number?`;
 
-      if(!confirm(message)){
-        return
+      if (!confirm(message)) {
+        return;
       }
 
       try {
         const response = await service.update(existingPerson.id, {
           ...existingPerson,
-          phoneNumber: newNumber
-        })
-        console.log("RESP ===>", response);
-        setIndividuals(newIndividuals.map((item) => {
-          return item.id === existingPerson.id ? response : item
-        }))
+          phoneNumber: newNumber,
+        });
+
+        setIndividuals(
+          newIndividuals.map((item) => {
+            return item.id === existingPerson.id ? response : item;
+          }),
+        );
+
+        setNotification({
+          message: "This person has been updated successfully",
+          kind: "confirm",
+        });
       } catch (error) {
-        alert("Something went wrong when updating the person")
+        setNotification({
+          message: "Something went wrong when updating the person",
+          kind: "error",
+        });
       }
-      
-      setNewName("");
-      setNewNumber("");
-      return 
+      clearNotification();
+
+      return;
     }
 
     const newPersonObject = { name: newName, phoneNumber: newNumber };
@@ -63,15 +84,17 @@ const App = () => {
 
       setIndividuals([...newIndividuals, responseObject]);
 
-      setTimeout(() => {
-        setNewName("");
-        setNewNumber("");
-
-        alert(message);
-      }, 300);
+      setNotification({
+        message,
+        kind: "confirm",
+      });
     } catch (error) {
-      alert("Something went wrong", error);
+      setNotification({
+        message: "Something went wrong when adding a new person",
+        kind: "error",
+      });
     }
+    clearNotification();
   };
 
   const handleFilterListByName = (e) => setSearchValue(e.target.value);
@@ -82,10 +105,10 @@ const App = () => {
       : [...(individuals ?? [])].filter((person) =>
           person.name
             .toLocaleLowerCase()
-            .includes(searchValue.toLocaleLowerCase())
+            .includes(searchValue.toLocaleLowerCase()),
         );
   }, [searchValue, individuals]);
-  
+
   const deletePerson = async (person) => {
     if (!confirm(`Do you really want to delete ${person.name}?`)) {
       return;
@@ -94,18 +117,32 @@ const App = () => {
 
     try {
       await service.delete(person.id);
-      newIndividuals = newIndividuals.filter((individual) => individual.id !== person.id)
-      setIndividuals(
-        newIndividuals.filter((individual) => individual.id !== person.id)
+      newIndividuals = newIndividuals.filter(
+        (individual) => individual.id !== person.id,
       );
+      setIndividuals(
+        newIndividuals.filter((individual) => individual.id !== person.id),
+      );
+      setNotification({
+        message: "This person has been deleted successfully",
+        kind: "confirm",
+      });
     } catch (error) {
-      alert("Something went wrong when deleting the item");
+      setNotification({
+        message: "Something went wrong when deleting this person",
+        kind: "error",
+      });
     }
+
+    clearNotification();
   };
 
   return (
     <div>
-      <h2>Phonebook</h2>
+      <h1>Phonebook</h1>
+
+      <Notification {...{ ...notification }} />
+
       <SearchFilter {...{ searchValue, handleFilterListByName }} />
 
       <h2>Add a new person</h2>
