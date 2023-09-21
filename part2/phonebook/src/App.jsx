@@ -1,17 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import service from "./services/individuals";
 import SearchFilter from "./SearchFilter";
 import Form from "./Form";
 import IndividualsList from "./List";
 
-const DUMMY_DATA = [
-  { name: "Arto Hellas", phoneNumber: "040-123456", id: 1 },
-  { name: "Ada Lovelace", phoneNumber: "39-44-5323523", id: 2 },
-  { name: "Dan Abramov", phoneNumber: "12-43-234345", id: 3 },
-  { name: "Mary Poppendieck", phoneNumber: "39-23-6423122", id: 4 },
-];
-
 const App = () => {
-  const [individuals, setIndividuals] = useState(DUMMY_DATA);
+  const [individuals, setIndividuals] = useState([]);
   const [newName, setNewName] = useState("");
   const [newNumber, setNewNumber] = useState("");
   const [searchValue, setSearchValue] = useState("");
@@ -19,38 +13,65 @@ const App = () => {
   const handleChangeNewName = (e) => setNewName(e.target.value);
   const handleChangeNewNumber = (e) => setNewNumber(e.target.value);
 
-  const handleAddPerson = (e) => {
+  const getInitialData = () => {
+    service.getAll().then((initialData) => {
+      setIndividuals(initialData);
+    });
+  };
+
+  useEffect(getInitialData, []);
+
+  const isNameEqual = (newName) => (person) =>
+    person.name.toLocaleLowerCase() === newName.toLocaleLowerCase();
+
+  const handleAddPerson = async (e) => {
     e.preventDefault();
     const newIndividuals = [...individuals];
 
     let message = "Person added successfully";
 
-    if (
-      newIndividuals.some(
-        (person) =>
-          person.name.toLocaleLowerCase() === newName.toLocaleLowerCase()
-      )
-    ) {
-      message = `This name, ${newName}, already exists in the book. Please, add a new name.`;
+    const existingPerson = newIndividuals.find(isNameEqual(newName));
+
+    if (typeof existingPerson?.id === 'number') {
+      message = `This name, ${newName}, already exists in the book. Do you want to update the phone number?`;
+
+      if(!confirm(message)){
+        return
+      }
+
+      try {
+        const response = await service.update(existingPerson.id, {
+          ...existingPerson,
+          phoneNumber: newNumber
+        })
+        console.log("RESP ===>", response);
+        setIndividuals(newIndividuals.map((item) => {
+          return item.id === existingPerson.id ? response : item
+        }))
+      } catch (error) {
+        alert("Something went wrong when updating the person")
+      }
+      
       setNewName("");
       setNewNumber("");
-
-      return alert(message);
+      return 
     }
 
-    const id = newIndividuals.length + 1;
+    const newPersonObject = { name: newName, phoneNumber: newNumber };
+    try {
+      const responseObject = await service.create(newPersonObject);
 
-    setIndividuals([
-      ...newIndividuals,
-      { id, name: newName, phoneNumber: newNumber },
-    ]);
+      setIndividuals([...newIndividuals, responseObject]);
 
-    setTimeout(() => {
-      setNewName("");
-      setNewNumber("");
+      setTimeout(() => {
+        setNewName("");
+        setNewNumber("");
 
-      alert(message);
-    }, 300);
+        alert(message);
+      }, 300);
+    } catch (error) {
+      alert("Something went wrong", error);
+    }
   };
 
   const handleFilterListByName = (e) => setSearchValue(e.target.value);
@@ -64,6 +85,23 @@ const App = () => {
             .includes(searchValue.toLocaleLowerCase())
         );
   }, [searchValue, individuals]);
+  
+  const deletePerson = async (person) => {
+    if (!confirm(`Do you really want to delete ${person.name}?`)) {
+      return;
+    }
+    let newIndividuals = [...individuals];
+
+    try {
+      await service.delete(person.id);
+      newIndividuals = newIndividuals.filter((individual) => individual.id !== person.id)
+      setIndividuals(
+        newIndividuals.filter((individual) => individual.id !== person.id)
+      );
+    } catch (error) {
+      alert("Something went wrong when deleting the item");
+    }
+  };
 
   return (
     <div>
@@ -82,7 +120,7 @@ const App = () => {
       />
 
       <h2>Numbers</h2>
-      <IndividualsList list={filteredList} />
+      <IndividualsList list={filteredList} deletePerson={deletePerson} />
     </div>
   );
 };
